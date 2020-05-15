@@ -1,0 +1,3 @@
+ALL_LOCATE_TARGET = $(TOP)/build ;
+
+CCFLAGS += -Wall -finline-functions  ;

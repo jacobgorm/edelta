@@ -1,0 +1,7 @@
+SubDir TOP ;
+
+LINKFLAGS on edelta += -static ;
+LINKLIBS on edelta += -lz ;
+Main edelta : edelta.c sha1.c ;
+
+Main main : main.c ;

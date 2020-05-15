@@ -1,0 +1,22 @@
+latest=`hg tags |grep release |head -n1 |sed -e 's/ .*//'`
+echo exporting $latest
+targz=`echo $latest |sed -e 's/release/edelta/'`
+
+dest=/tmp/codesync-export.hg
+rm -rf $dest
+
+hg clone -U . $dest
+
+(cd $dest
+	hg update $tag
+	mkdir $targz
+	version=`echo $latest | sed -e 's/release-//'`
+
+	echo \#define VERSION \"$version\"> $targz/version.h
+
+	cp -r *.[ch] COPYING Jam* Contributors Makefile scripts  $targz
+	tar czf $targz.tar.gz $targz)
+
+cp $dest/$targz.tar.gz .
+scp $dest/$targz.tar.gz ask.diku.dk:www/edelta/
+rm -rf $dest

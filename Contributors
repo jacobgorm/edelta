@@ -1,0 +1,9 @@
+Conceived and developed by Jacob Gorm Hansen.
+
+Alex Agranov was kind enough to report a bug with very divergent versions.
+
+Eske Christiansen provided a platform-neutral sha-1 which he got from mutt or
+gpg.
+
+Also thanks to Joergen Svaerke Hansen and Johan Kjeldgaard for discussion and
+ideas.

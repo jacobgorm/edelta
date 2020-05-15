@@ -1,0 +1,28 @@
+#!/bin/sh 
+host=`echo $2 | sed -e 's/:.*//'`
+rname=`echo $2 | sed -e 's/.*://'`
+
+a=""
+b=""
+
+hide=$HOME/.epatch/$host
+mkdir -p $hide
+
+backup=$hide/`echo $rname|sed -e "s/\//_/g"`
+
+if [ -e $backup ]
+then
+
+	if cmp -s $backup $1  
+	then
+		exit
+	else
+		echo patching $1 to $rname
+		(edelta delta $backup $1 | ssh $host "edelta patch $rname $rname" && \
+		cp $1 $backup) || (scp -C $1 $host:$rname && cp $1 $backup)
+		exit
+	fi
+
+else
+	scp -C $1 $host:$rname && cp $1 $backup
+fi

@@ -1,0 +1,42 @@
+
+\begin{tabular}{|r|l||r|l|r|}
+\hline
+Hexadecimal (a) & Mnemonic (a) & Hexadecimal (b) & Mnemonic (b)  & Offset(decimal)\\ 
+\hline
+\hline
+ 48 00 04 \bf b1    &   bl 0x1000071c            &          48 00 04 \bf c5  & b 0x10000730            & 20 \\
+\hline
+ 85 a8 07 \bf a8    &   lwzu r13,1960(r8)        &          85 a8 07 \bf bc  & lwzu r13,1980(r8)       & 20 \\
+ 48 01 06 \bf 78    &   b 0x10010918             &          48 01 06 \bf 8c  & b 0x1001092c            & 20 \\
+\hline
+ 48 01 06 \bf 09    &   bl 0x100108bc            &          48 01 06 \bf 1d  & bl 0x100108d0           & 20 \\
+\hline
+ 88 1e 09 \bf 30    &   lbz r0,2352(r30)         &          88 1e 09 \bf 44  & lbz r0,2372(r30)        & 20 \\
+\hline
+ 81 7f 07 \bf c8    &   lwz r11,1992(r31)        &          81 7f 07 \bf dc  & lwz r11,2012(r31)       & 20 \\
+\hline
+ 90 1f 07 \bf c8    &   stw r0,1992(r31)         &          90 1f 07 \bf dc  & stw r0,2012(r31)        & 20 \\
+\hline
+ 81 7f 07 \bf c8    &   lwz r11,1992(r31)        &          81 7f 07 \bf dc  & lwz r11,2012(r31)       & 20 \\
+\hline
+ 98 1e 09 \bf 30    &   stb r0,2352(r30)         &          98 1e 09 \bf 44  & stb r0,2372(r30)        & 20 \\
+\hline
+ 80 0b 08 \bf b8    &   lwz r0,2232(r11)         &          80 0b 08 \bf cc  & lwz r0,2252(r11)        & 20 \\
+\hline
+ 38 6b 08 \bf b8    &   addi r3,r11,2232         &          38 6b 08 \bf cc  & addi r3,r11,2252        & 20 \\
+\hline
+                    &                            &          38 00 00 02  & li r0,2                     & \\
+                    &                            &          90 1f 00 08  & stw r0,8(r31)               & \\
+                    &                            &          80 1f 00 08  & lwz r0,8(r31)               & \\
+                    &                            &          2c 00 00 01  & cmpwi r0,1                  & \\
+                    &                            &          40 81 00 14  & ble 0x10000410                     & \\
+\hline
+ 38 69 07 \bf bc    &   addi r3,r9,1980          &          38 69 07 \bf d0  & addi r3,r9,2000         & 20 \\
+\hline
+ 4b ff \bf fe \bf 11    &   bl 0x10000258        &          4b ff \bf fd \bf fd  & bl 0x10000258               & -20 \\
+\hline
+ 39 29 08 \bf ac    &   addi r9,r9,2220          &          39 29 08 \bf c0  & addi r9,r9,2240         & 20 \\
+\hline
+ 4b ff fb \bf 51    &   bl 0x100002e4            &          4b ff fb \bf 3d  & bl 0x100002e4           & -20 \\
+\hline
+\end{tabular}

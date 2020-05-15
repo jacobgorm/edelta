@@ -1,0 +1,220 @@
+
+
+\documentclass[10pt,twocolumn]{article}
+\usepackage{usenix-2e}
+\usepackage[compact,small]{titlesec} % ,small
+%\titlespacing{\section}{0pt}{2ex}{.5ex}
+%\titlespacing{\subsection}{0pt}{1.5ex}{.5ex}
+
+%\usepackage{paralist}
+%\setlength{\plitemsep}{.75ex}
+%\setlength{\pltopsep}{.75ex}
+
+\setlength{\belowcaptionskip}{.5ex}
+\setlength{\textfloatsep}{3ex}
+
+\usepackage[english]{babel}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{graphicx}
+
+\usepackage[square,numbers]{natbib}
+\setlength{\bibsep}{.5ex}
+
+\lstset{language=C,linewidth=.89\textwidth,print=true,captionpos=b,basicstyle=\ttfamily,breaklines,extendedchars=true,commentstyle=\footnotesize,fontadjust=true}
+
+\begin{document}
+\title{\Large \bf The EDelta Algorithm for Linear time, Constant space
+Executable Differencing}
+
+\author{
+{\rm Jacob Gorm Hansen}
+\\Department of Computer Science, University of Copenhagen, Denmark
+}
+
+\maketitle
+
+\begin{abstract}
+{\small\it Abstract here}
+\end{abstract}
+
+\section{Introduction}
+
+Various algorithms for extracting differences between two related binary files
+have been described, most prominently zdelta, xdelta, and rsync. These
+algorithms achieve good results when differences can be described as insertions
+and deletions of substrings, but do no take into account other forms of
+systematic changes, such as those resulting from the recompilation of a program
+from slightly changed sources. Since the need for propagating software updates,
+for instance security patches, to clients with limited network connections, such
+as cell phones or modem-connected home computers, is increasing, a specialised
+solution to this problem may be beneficial. In addition, Software Configuration
+Management systems, such as Vesta~\cite{vesta} may wish to include versioning
+build systems which stores all binaries for future reference, and developers
+working across wide-area links with limited bandwidth can increase productivity
+if they are able to quickly deploy large binaries to machines in remote data
+centres.
+
+Different rules may apply when updating software than when updating other types
+of files, and various tradeoffs can be made. For instance, if it is known that
+only a certain procedure needs to be replaced, theoretically only the compiled
+code for this procedure needs to be transmitted, and the original version
+replated with this one, or alternatively with a jump instruction to the location
+of the new one, in the likely case that its definition has grown in size. However,
+patching procedure definitions like this will result in the target file not
+matching its server side counterpart byte for byte, and may adversely affect the
+performance of the code, due to changes in cache locality.  And while relaxing
+the constraint that the resulting file on the target should match the result of
+compilation exactly may result in a more efficient delta transfer, as the amount
+of changes communicated will be proportional in the amount of changes at the
+source code level, subsequent updates, as well as security audits, will become
+harder.
+
+Another option, as is common with the BSD UNIX variants, is to simply distribute
+changes in source code form, requiring that the source of the previous version
+and a suitable suite of compilers be present at the target machine.  However,
+this is rarely an option for embedded and small scale desktop systems, with no
+capacity to host a suite of build tools, and without operators skilled in
+software maintenance at the the source level.
+
+In this paper, we describe the EDelta delta-compression algorithm, a variant of
+the linear time, constant space differencing algorithm described by Burns and
+Long~\cite{lineartime}. Similar to the Burns and Long algorithm, EDelta trades
+some optimality for platform and instruction-set neutrality, run-time
+performance and memory efficiency. Competing algorithms are either very
+expensive in terms of memory and CPU complexity, as is the case for
+BSDiff~\cite{bsdiff}, or specific to a single instruction set family, in the
+case of ExeDiff~\cite{exediff} or Microsoft's VPEDiff which is based on
+Vulcan~\cite{vulcan}. EDelta also sees increasing competition from non-dedicated
+delta compression algorithms, mainly ZDelta, a variation of LZ77. Compared to
+the latter, EDelta's advantages are mainly speed, compression ratio for smaller
+changes, and the ability to apply changes in-place.
+
+The rest of the paper is laid out as follows: first we examine the ways a binary
+file changes when changes are made to the source from which it is compiled. We
+then briefly describe the linear algorithm on which EDelta is based, and the
+modifications we introduce to make it perform better for executable code. We
+evaulate EDelta in comparison to other algorithms for a set of different inputs,
+measuring performance both in terms of delta file sizes and execution time for
+delta extraction.
+
+\section{Examining the structure of changes}
+
+The original motivation for the work that lead to the implementation of EDelta,
+was that existing longest-common-substring delta algorithms such as RSync and
+Xdelta often performed poorly when used for updating executables. The author was
+doing development work where a fast machine used for compilation of Linux
+kernelsn was placed remotely, whereas the debug target machine was present
+locally, and a slow ADSL link had to be traversed for each compile-debug cycle.
+RSync was used for transmitting updates from the compilation machine to the
+local debug target, but any non-trivial change at the source level would result
+in very poor compression, because of cascading effects caused by relocations of
+code in the executable Linux kernel image. These relocations would confuse the
+longest-common-substring (LCS) matcher at the heart of RSync to believe that
+large sections of the file had changed, degrading the compression ratio.
+
+With this in mind, we decided to look for a compact way of encoding the
+structure of changes to the binary executable, even in the face of relocations.
+First we performed a simple experiments using existing textual delta tools to
+visualize the structure of changes. We dis-assembled two binary version of the
+same program, filtered away any irrelevant information such as line numbers and
+identical instruction sequences, and ran the textural ``diff'' command on the
+remaining text. The result provided the inspiration for the further development
+of EDelta.  Table~\ref{tab:diff} shows the textual differences between the
+assembly outputs of two versions of a simple ``hello world'' C program compiled
+for PowerPC, with code added between versions. The added code, an added local
+variable and a simple conditional, results in a few new instructions, but as the
+code has moved in memory, all references have been offset by $\pm 20$ bytes. This
+observation motivates us to attempt to code changes not only as byte-range
+copies and additions, but also as a range of offsets within a file at which a
+numeric value should be added. To an LCS-algorithm, the instruction sequences
+will appear different, however it should be clear to the reader that if the
+LCS-matcher ignored the non-matching bytes (bold-faced in the table), more
+and longer matches would be possible, and remaining differences made up for by
+patching changed offsets in a separate phase.
+
+
+\begin{table*}
+\begin{center}
+\input{hellodiff.tex}
+\end{center}
+\caption{ \label{tab:diff} Diff}
+\end{table*}
+
+\section{Proposed algorithm}
+
+Traditional Longest-Common-Substring (LCS) delta algorithms encode the new
+version as a number of strings to be copied from the original file, as well as a
+number of new strings to be added. Since copy operations can be represented as
+(source, destination, length) tuples of constant size, the size of the delta
+file will usually be dominated by the length of the added strings. If we can
+expand the lengths of the copied strings and reduce the lengths of the
+additions, the delta file size will be reduced as a result. Based on the
+observersations made above, we hypothesise that if we expand the length of
+copied strings by allowing for constant-sized holes to occur when matching
+ranges, and later patching these in a separate pass, we may be able to obtain a
+smaller overall delta file size, as the holes in matching ranges will represent
+an often occuring offset change, and thus may be effeciently represented.
+
+Our algorithm is a straight-forward specialisation of the algorithm proposed in
+\cite{alinear}. While not always finding the optimal delta, this algorithm has
+the desirable property that its complexity is linear ($O(n)$) in the size of the
+larger of its inputs. It works by computing a rolling hash for each offset
+in base and version files, looking these up in a hash table, and comparing
+ranges when matching hashes are found. When matching ranges are encountered,
+these are encoded in the delta file as an addition of the data leading up to the
+match, as well as a copy of the extent of the match in the base file, to its new
+location in the version file. 
+
+Given the characteristics noted from our examination of the hello world example
+above, we attempt to improve the amount of copy operations, and thus reuse
+between versions, by allowing holes up to the size of an integer (currently 32
+bits) in our matching ranges, deferring the repair of these to a later stage.
+Our assumption is that holes appearing within matching ranges will frequently be
+due to instructions referencing relocated symbols, and that the result of
+subtracting the new and old values of the mismatching integers will usually
+represent a globally changed offset, and thus be occur with high frequency.
+
+Table \ref{table:hello-sizes} shows the size of the two versions of the hello
+world executable, compiled for the PowerPC architecture and stripped of
+debugging symbols. 
+
+\section{Related Work}
+
+Due to the increasing need for timely dispersal of updates for operating systems
+and applications exposed to the perils of the Internet, there has been a growing
+interest in delta compression algorithms for executables. All algorithms do
+essentially the same thing--convert two executables $b$ and $v$ into a patch $p$
+such that $v = b+p$--but the design space contains various tradeoffs, with
+regards to types of input accepted and running time and space demands for delta
+extraction and patching.
+
+\begin{table*}
+\begin{center}
+\begin{tabular}{|r|c|c|c|}
+\hline
+
+                        & ExeDiff        &      BSDiff    & EDelta     \\
+
+\hline
+Run-time complexity     & O(n)           &   O((n+m) log n) & O(min(n,m))   \\  
+Space complexity        &                & max(17*n,9*n+m)+O(1) &            \\
+Instruction-set neutral & No             &  Yes           & Yes        \\
+\hline
+
+\end{tabular}
+\caption{ \label{tab:comparisons} Comparisons}
+\end{center}
+\end{table*}
+
+
+
+\section{Acknowledgments}
+
+{\footnotesize
+\citeindexfalse
+\bibliographystyle{unsrt}
+\bibliography{biblio}
+\citeindextrue
+}
+\end{document}
